@@ -4,20 +4,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import com.sharestack.ui.theme.ShareStackTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.sharestack.ui.screens.ActiveProposalCard
-import com.sharestack.ui.screens.CreateProposalScreen
-import com.sharestack.ui.screens.GroupDetailScreen
-import com.sharestack.ui.screens.HomeDashboardScreen
-import com.sharestack.ui.screens.LoginScreen
-import com.sharestack.ui.screens.RegisterScreen
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.sharestack.ui.screens.*
+import com.sharestack.ui.theme.ShareStackTheme
+import com.sharestack.viewModel.ShareStackViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,48 +26,101 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // Our master navigation router
-                    var currentScreen by remember { mutableStateOf("login") }
+                    val navController = rememberNavController()
+                    val viewModel: ShareStackViewModel = viewModel()
 
-                    when (currentScreen) {
-                        "login" -> {
+                    NavHost(
+                        navController = navController,
+                        startDestination = "login"
+                    ) {
+                        // LOGIN SCREEN
+                        composable("login") {
                             LoginScreen(
-                                onNavigateToHome = { currentScreen = "home" },
-                                onNavigateToRegister = { currentScreen = "register" }
+                                onNavigateToRegister = {
+                                    navController.navigate("register")
+                                },
+                                onNavigateToHome = {
+                                    viewModel.login("demo@example.com", "password")
+                                    navController.navigate("home")
+                                }
                             )
                         }
-                        "register" -> {
+
+                        // REGISTER SCREEN
+                        composable("register") {
                             RegisterScreen(
-                                onNavigateToLogin = { currentScreen = "login" },
-                                onNavigateToHome = { currentScreen = "home" }
+                                onNavigateToLogin = {
+                                    navController.navigate("login")
+                                },
+                                onNavigateToHome = {
+                                    viewModel.signup("Demo User", "demo@example.com", "password")
+                                    navController.navigate("home")
+                                }
                             )
                         }
-                        "home" -> {
+
+                        // HOME DASHBOARD
+                        composable("home") {
                             HomeDashboardScreen(
-                                onNavigateToProposal = { currentScreen = "proposal" },
-                                onNavigateToGroupHub = { currentScreen = "group_detail" }
+                                onNavigateToGroupHub = {
+                                    // Navigate to group detail with first group ID
+                                    val firstGroupId = viewModel.stacks.value.firstOrNull()?.id ?: "1"
+                                    navController.navigate("group-detail/$firstGroupId")
+                                },
+                                onNavigateToProposal = {
+                                    // Navigate to active proposal card
+                                    navController.navigate("proposal-detail")
+                                }
                             )
                         }
-                        "group_detail" -> {
+
+                        // GROUP DETAIL
+                        composable(
+                            route = "group-detail/{groupId}",
+                            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val groupId = backStackEntry.arguments?.getString("groupId") ?: "1"
                             GroupDetailScreen(
-                                onNavigateBack = { currentScreen = "home" },
-                                onNavigateToProposal = { currentScreen = "proposal" },
-                                onNavigateToCreate = { currentScreen = "create_proposal" }
+                                groupId = groupId,
+                                onNavigateBack = {
+                                    navController.popBackStack()
+                                },
+                                onNavigateToProposal = {
+                                    navController.navigate("proposal-detail")
+                                },
+                                onNavigateToCreate = {
+                                    navController.navigate("create-proposal/$groupId")
+                                }
                             )
                         }
-                        "proposal" -> {
-                            // This is the very first screen we built!
-                            ActiveProposalCard(
-                            onNavigateBack = { currentScreen = "home" }
-                            )
-                        }
-                        "create_proposal" -> {
+
+                        // CREATE PROPOSAL
+                        composable(
+                            route = "create-proposal/{groupId}",
+                            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val groupId = backStackEntry.arguments?.getString("groupId") ?: "1"
                             CreateProposalScreen(
-                                onNavigateBack = { currentScreen = "group_detail" },
-                                onSubmit = {
-                                    // TODO: Later, this will send data to the backend.
-                                    // For now, just route them back to the hub.
-                                    currentScreen = "group_detail"
+                                groupId = groupId,
+                                onNavigateBack = {
+                                    navController.popBackStack()
+                                },
+                                onSubmit = { stockTicker, targetAmount ->
+                                    viewModel.createProposal(groupId, stockTicker, targetAmount)
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+
+                        // PROPOSAL DETAIL (Active Proposal Card)
+                        composable("proposal-detail") {
+                            ActiveProposalCard(
+                                onNavigateBack = {
+                                    navController.popBackStack()
+                                },
+                                onConfirmRedistribution = { newSplit ->
+                                    viewModel.redistributeFunds("p1", newSplit)
+                                    navController.popBackStack()
                                 }
                             )
                         }

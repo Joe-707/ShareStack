@@ -15,13 +15,14 @@ import com.sharestack.ui.theme.ShareStackTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateProposalScreen(
+    groupId: String,
     onNavigateBack: () -> Unit = {},
-    onSubmit: () -> Unit = {}
+    onSubmit: (String, Double) -> Unit = { _, _ -> }
 ) {
     var stockTicker by remember { mutableStateOf("") }
     var targetAmount by remember { mutableStateOf("") }
 
-    // Validation: Fields must not be empty, and the amount MUST be a valid number
+    // Validation: Fields must not be empty, amount must be a valid number
     val isFormValid = stockTicker.isNotBlank() && targetAmount.toDoubleOrNull() != null
 
     Scaffold(
@@ -33,7 +34,9 @@ fun CreateProposalScreen(
                         Text("←", fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { paddingValues ->
@@ -41,7 +44,7 @@ fun CreateProposalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(24.dp)
+                .padding(all = 24.dp)
         ) {
             Text(
                 text = "What should the group buy?",
@@ -76,7 +79,7 @@ fun CreateProposalScreen(
                 onValueChange = { targetAmount = it },
                 label = { Text("Target Amount (Ksh)") },
                 modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Forces the number pad
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true
             )
 
@@ -84,8 +87,12 @@ fun CreateProposalScreen(
 
             // Submit Button
             Button(
-                onClick = onSubmit,
-                enabled = isFormValid, // Button stays grayed out until the input is perfect
+                onClick = {
+                    targetAmount.toDoubleOrNull()?.let {
+                        onSubmit(stockTicker, it)
+                    }
+                },
+                enabled = isFormValid,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
@@ -99,5 +106,7 @@ fun CreateProposalScreen(
 @Preview(showBackground = true)
 @Composable
 fun PreviewCreateProposal() {
-    ShareStackTheme { CreateProposalScreen() }
+    ShareStackTheme {
+        CreateProposalScreen(groupId = "1")
+    }
 }
