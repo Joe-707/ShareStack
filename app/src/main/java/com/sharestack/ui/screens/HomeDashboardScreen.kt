@@ -201,13 +201,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sharestack.models.InvestmentGroup
 import com.sharestack.models.Proposal
-import com.sharestack.models.User
 import com.sharestack.ui.theme.ShareStackTheme
-import java.util.Calendar // Gives us access to the device's clock
+import com.sharestack.viewModel.ShareStackViewModel
+import java.util.Calendar
 
-// A quick helper function to determine the time of day
+// Helper function to determine time of day
 fun getGreetingMessage(): String {
     val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     return when (currentHour) {
@@ -218,9 +219,18 @@ fun getGreetingMessage(): String {
 }
 
 @Composable
-fun HomeDashboardScreen(onNavigateToProposal: () -> Unit = {}, onNavigateToGroupHub: () -> Unit={} ) {
-    val currentUser = User(id = "u1", name = "Austin", totalPortfolioValue = 145000.0)
+fun HomeDashboardScreen(
+    viewModel: ShareStackViewModel = viewModel(),
+    onNavigateToProposal: () -> Unit = {},
+    onNavigateToGroupHub: () -> Unit = {}
+) {
+    // Observe state from ViewModel
+    val currentUser by viewModel.currentUser.collectAsState()
+    val balance by viewModel.balance.collectAsState()
+    val investmentGroups by viewModel.investmentGroups.collectAsState()
+    val currentPrices by viewModel.currentPrices.collectAsState()
 
+    // Create dummy proposal for display
     val dummyProposal = Proposal(
         id = "p1",
         stockTarget = "Nvidia (NVDA)",
@@ -228,19 +238,35 @@ fun HomeDashboardScreen(onNavigateToProposal: () -> Unit = {}, onNavigateToGroup
         activeMembers = listOf("Joe", "Austin", "Sarah")
     )
 
-    val dummyGroups = listOf(
-        InvestmentGroup(id = "g1", name = "Tech Giants Pool", memberCount = 3, activeProposals = listOf(dummyProposal)),
-        InvestmentGroup(id = "g2", name = "Real Estate Fund", memberCount = 5, activeProposals = emptyList()),
-        InvestmentGroup(id = "g3", name = "Green Energy Co-op", memberCount = 8, activeProposals = emptyList())
-    )
+    // Create dummy groups if real ones empty
+    val displayGroups = if (investmentGroups.isEmpty()) {
+        listOf(
+            InvestmentGroup(
+                id = "g1",
+                name = "Tech Giants Pool",
+                memberCount = 3,
+                activeProposals = listOf(dummyProposal)
+            ),
+            InvestmentGroup(
+                id = "g2",
+                name = "Real Estate Fund",
+                memberCount = 5,
+                activeProposals = emptyList()
+            )
+        )
+    } else {
+        investmentGroups
+    }
 
     Scaffold(
         topBar = {
             Row(
-                modifier = Modifier.fillMaxWidth().systemBarsPadding().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .systemBarsPadding()
+                    .padding(all = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Now it reads the clock AND the data model!
                 Text(
                     text = "${getGreetingMessage()}, ${currentUser.name}!",
                     fontSize = 20.sp,
@@ -250,29 +276,72 @@ fun HomeDashboardScreen(onNavigateToProposal: () -> Unit = {}, onNavigateToGroup
             }
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Total Stack Value", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("Ksh ${currentUser.totalPortfolioValue}", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+        ) {
+            // Portfolio Value Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(all = 24.dp)
+                ) {
+                    Text(
+                        text = "Total Stack Value",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Text(
+                        text = "Ksh ${String.format("%.2f", balance)}",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            Text("Your Active Stacks", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(dummyGroups) { group ->
-                    Card(modifier = Modifier.fillMaxWidth(),
-                        onClick = { onNavigateToGroupHub() }) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(group.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("Members: ${group.memberCount} | Active Proposals: ${group.activeProposals.size}", color = MaterialTheme.colorScheme.secondary)
+            Text(
+                text = "Your Active Stacks",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(displayGroups) { group ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { onNavigateToGroupHub() }
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(all = 16.dp)
+                        ) {
+                            Text(
+                                text = group.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Members: ${group.memberCount} | Active Proposals: ${group.activeProposals.size}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
 
                             Spacer(modifier = Modifier.height(12.dp))
 
                             if (group.activeProposals.isNotEmpty()) {
-                                Button(onClick = onNavigateToProposal) {
+                                Button(
+                                    onClick = onNavigateToProposal,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
                                     Text("View Active Proposal")
                                 }
                             }
@@ -287,5 +356,7 @@ fun HomeDashboardScreen(onNavigateToProposal: () -> Unit = {}, onNavigateToGroup
 @Preview(showBackground = true)
 @Composable
 fun PreviewHomeDashboard() {
-    ShareStackTheme { HomeDashboardScreen() }
+    ShareStackTheme {
+        HomeDashboardScreen()
+    }
 }

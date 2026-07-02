@@ -13,7 +13,10 @@ import androidx.compose.ui.unit.sp
 import com.sharestack.ui.theme.ShareStackTheme
 
 @Composable
-fun LoginScreen(onNavigateToRegister: () -> Unit = {}, onNavigateToHome: () -> Unit = {}) {
+fun LoginScreen(
+    onNavigateToRegister: () -> Unit = {},
+    onNavigateToHome: () -> Unit = {}
+) {
     // State variables to hold what the user types
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -21,7 +24,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit = {}, onNavigateToHome: () -> U
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(all = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -69,7 +72,7 @@ fun LoginScreen(onNavigateToRegister: () -> Unit = {}, onNavigateToHome: () -> U
 
         // Login Button
         Button(
-            onClick =  onNavigateToHome,
+            onClick = onNavigateToHome,
             enabled = email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
@@ -84,13 +87,5 @@ fun LoginScreen(onNavigateToRegister: () -> Unit = {}, onNavigateToHome: () -> U
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Create one")
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewLoginScreen() {
-    ShareStackTheme {
-        LoginScreen()
     }
 }
