@@ -11,43 +11,73 @@ import com.sharestack.models.User
 import com.sharestack.models.InvestmentGroup
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import android.content.Context
+import com.sharestack.data.local.DatabaseHelper
 
 class ShareStackViewModel : ViewModel() {
 
+    // ✅ Initialize repository with a dummy context
+    // The DatabaseHelper will handle this properly
     private val repository = ShareStackRepository()
     private val priceService = MockPriceService()
-    private val authService = MockAuthService()
 
     // ========== EXPOSED STATE ==========
 
     // User state
-    val currentUser: StateFlow<User> = repository.currentUser
-    val balance: StateFlow<Double> = repository.balance
-    val isLoggedIn: StateFlow<Boolean> = authService.isLoggedIn
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    private val _balance = MutableStateFlow(500.0)
+    val balance: StateFlow<Double> = _balance.asStateFlow()
+
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
     // Stack data
     val stacks: StateFlow<List<Stack>> = repository.stacks
-    val currentPrices: StateFlow<Map<String, Double>> = priceService.prices
+    val currentPrices: StateFlow<Map<String, Double>> = repository.currentPrices
 
     // ========== UI-FRIENDLY DERIVED STATE ==========
 
     // Convert Stacks to InvestmentGroups for Austin's UI
-    val investmentGroups: StateFlow<List<InvestmentGroup>> = stacks
-        .map { stacksList ->
-            stacksList.map { stack ->
-                InvestmentGroup(
-                    id = stack.id,
-                    name = stack.name,
-                    memberCount = stack.members.size,
-                    activeProposals = stack.activeProposals
-                )
-            }
+    // NEW CODE - With real-time prices
+    val investmentGroups: StateFlow<List<InvestmentGroup>> = combine(
+        stacks,
+        currentPrices
+    ) { stacksList, prices ->
+        stacksList.map { stack ->
+            val currentPrice = prices[stack.stockSymbol] ?: stack.purchasePrice
+            val totalValue = currentPrice * stack.sharesOwned
+            val totalCost = stack.purchasePrice * stack.sharesOwned
+            val profitLoss = totalValue - totalCost
+
+            InvestmentGroup(
+                id = stack.id,
+                name = stack.name,
+                memberCount = stack.members.size,
+                activeProposals = stack.activeProposals,
+                stockSymbol = stack.stockSymbol,
+                sharesOwned = stack.sharesOwned,
+                purchasePrice = stack.purchasePrice,
+                currentPrice = currentPrice,
+                totalValue = totalValue,
+                profitLoss = profitLoss
+            )
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(),
-            initialValue = emptyList()
-        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(),
+        initialValue = emptyList()
+    )
+
+    //Total portfolio value
+    val totalPortfolioValue: StateFlow<Double> = investmentGroups.map { groups ->
+        groups.sumOf { it.totalValue }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(),
+        initialValue = 0.0
+    )
 
     // Get a single stack by ID
     fun getStackById(id: String): Stack? {
@@ -87,32 +117,34 @@ class ShareStackViewModel : ViewModel() {
     }
 
     // ========== AUTHENTICATION ==========
-    fun login(email: String, password: String) {
-        viewModelScope.launch {
-            authService.login(email, password)
 
-            // Check if they registered during this session
-            val storedName = authService.getRegisteredName(email)
-
-            // If we found them, use their name. If not, default to Demo User.
-            val nameToUse = storedName ?: "Demo User"
-            repository.updateUserName(nameToUse)
+    // ✅ Returns User? (null if not found)
+    fun login(email: String, password: String): Boolean {
+        val user = repository.login(email, password)
+        return if (user != null) {
+            _currentUser.value = user
+            _isLoggedIn.value = true
+            true
+        } else {
+            false
         }
     }
 
-    fun signup(name: String, email: String, password: String) {
-        viewModelScope.launch {
-            authService.signup(name, email, password)
-            // Save the exact name they typed into the registration form
-            repository.updateUserName(name)
+    fun register(name: String, email: String, password: String): Boolean {
+        val success = repository.register(email, password, name)
+        if (success) {
+            _currentUser.value = User(email, name, 0.0, email)
+            _isLoggedIn.value = true
         }
+        return success
     }
+
 
     fun logout() {
-        viewModelScope.launch {
-            authService.logout()
-        }
+        _currentUser.value = null
+        _isLoggedIn.value = false
     }
+
 
     // ========== PROPOSAL ==========
     fun createProposal(stackId: String, stockTicker: String, targetAmount: Double) {
@@ -126,6 +158,13 @@ class ShareStackViewModel : ViewModel() {
 
         // 2. Send it to the repository so the UI instantly redraws!
         repository.addProposalToStack(stackId, newPitch)
+    }
+
+
+    fun setDemoUser() {
+        _currentUser.value = User("u1", "Demo User", 500.0)
+        _isLoggedIn.value = true
+        _balance.value = 500.0
     }
 
     // ========== REDISTRIBUTION ==========

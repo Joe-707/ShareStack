@@ -14,7 +14,8 @@ import com.sharestack.ui.theme.ShareStackTheme
 
 @Composable
 fun RegisterScreen(onNavigateToLogin: () -> Unit = {},
-                   onNavigateToHome: (String, String, String) -> Unit = {_, _, _ ->}) {
+                   onNavigateToHome: (name: String, email: String, password: String) -> Unit = { _, _, _ -> }
+) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }

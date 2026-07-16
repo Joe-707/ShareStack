@@ -16,6 +16,7 @@ import androidx.navigation.navArgument
 import com.sharestack.ui.screens.*
 import com.sharestack.ui.theme.ShareStackTheme
 import com.sharestack.viewModel.ShareStackViewModel
+import android.widget.Toast
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,15 +34,26 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         startDestination = "login"
                     ) {
-                        // LOGIN SCREEN
+                        // ========== LOGIN SCREEN ==========
                         composable("login") {
                             LoginScreen(
                                 onNavigateToRegister = {
                                     navController.navigate("register")
                                 },
                                 onNavigateToHome = { email, password ->
-                                    viewModel.login(email, password)
-                                    navController.navigate("home")
+                                    val success = viewModel.login(email, password)
+                                    if (success) {
+                                        navController.navigate("home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    } else {
+                                        // Show Toast message for failed login
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "Login failed: Invalid email or password",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
                                 }
                             )
                         }
@@ -52,9 +64,14 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToLogin = {
                                     navController.navigate("login")
                                 },
-                                onNavigateToHome = { name,email,password ->
-                                    viewModel.signup(name, email, password)
-                                    navController.navigate("home")
+                                onNavigateToHome = { name, email, password ->
+                                    // ✅ Call register (was signup)
+                                    val success = viewModel.register(name, email, password)
+                                    if (success) {
+                                        navController.navigate("home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    }
                                 }
                             )
                         }

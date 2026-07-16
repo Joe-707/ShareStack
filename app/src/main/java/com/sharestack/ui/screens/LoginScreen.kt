@@ -1,10 +1,12 @@
 package com.sharestack.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -15,15 +17,12 @@ import com.sharestack.ui.theme.ShareStackTheme
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
-    onNavigateToHome: (String, String) -> Unit = {_, _ ->}
+    onNavigateToHome: (email: String, password: String) -> Unit = { _, _ -> }
 ) {
-    // State variables to hold what the user types
+    val context = LocalContext.current
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
-    // Validation Logic
-    val emailPattern = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$".toRegex()
-    val isEmailValid = email.matches(emailPattern)
+    var loginError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -51,13 +50,34 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
+        // ✅ Show error message if login fails
+        if (loginError != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Text(
+                    text = loginError!!,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(all = 12.dp),
+                    fontSize = 14.sp
+                )
+            }
+        }
+
         // Email Input Field
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it },
+            onValueChange = {
+                email = it
+                loginError = null  // Clear error when user types
+            },
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            isError = email.isNotEmpty() && !isEmailValid,
             singleLine = true
         )
 
@@ -66,7 +86,10 @@ fun LoginScreen(
         // Password Input Field
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it },
+            onValueChange = {
+                password = it
+                loginError = null  // Clear error when user types
+            },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
@@ -77,8 +100,17 @@ fun LoginScreen(
 
         // Login Button
         Button(
-            onClick = { onNavigateToHome(email,password) },
-            enabled = email.isNotBlank() && isEmailValid && password.isNotBlank(),
+            onClick = {
+                if (email.isBlank() || password.isBlank()) {
+                    loginError = "Please enter both email and password"
+                } else {
+                    // Try to login
+                    // The result will be handled in MainActivity
+                    // But we pass the email and password
+                    onNavigateToHome(email, password)
+                }
+            },
+            enabled = email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
@@ -92,5 +124,13 @@ fun LoginScreen(
         TextButton(onClick = onNavigateToRegister) {
             Text("Don't have an account? Create one")
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewLoginScreen() {
+    ShareStackTheme {
+        LoginScreen()
     }
 }

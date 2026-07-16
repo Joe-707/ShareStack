@@ -4,7 +4,8 @@ package com.sharestack.models
 data class User(
     val id: String = "u1",
     val name: String,
-    val totalPortfolioValue: Double = 0.0
+    val totalPortfolioValue: Double = 0.0,
+    val email: String = ""
 )
 
 // ========== STACK (Investment Group) ==========
@@ -46,15 +47,11 @@ data class InvestmentGroup(
     val id: String,
     val name: String,
     val memberCount: Int,
-    val activeProposals: List<Proposal> = emptyList()
+    val activeProposals: List<Proposal> = emptyList(),
+    val stockSymbol: String = "",           // ✅ ADDED
+    val sharesOwned: Double = 0.0,          // ✅ ADDED
+    val purchasePrice: Double = 0.0,        // ✅ ADDED
+    val currentPrice: Double = 0.0,         // ✅ ADDED
+    val totalValue: Double = 0.0,           // ✅ ADDED
+    val profitLoss: Double = 0.0            // ✅ ADDED
 )
-
-// Extension function to convert Stack to InvestmentGroup for UI
-fun Stack.toInvestmentGroup(): InvestmentGroup {
-    return InvestmentGroup(
-        id = this.id,
-        name = this.name,
-        memberCount = this.members.size,
-        activeProposals = this.activeProposals
-    )
-}

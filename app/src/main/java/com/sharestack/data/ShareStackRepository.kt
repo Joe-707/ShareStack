@@ -1,15 +1,95 @@
 package com.sharestack.data
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import com.sharestack.BuildConfig
+import com.sharestack.ShareStackApplication
+import com.sharestack.data.local.DatabaseHelper
+import com.sharestack.data.remote.NetworkModule
 import com.sharestack.models.Proposal
 import com.sharestack.models.Stack
 import com.sharestack.models.StackMember
 import com.sharestack.models.User
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
-class ShareStackRepository {
+
+class ShareStackRepository() {
+
+    private val dbHelper: DatabaseHelper by lazy {
+        // This will be set via a setter or application class
+        DatabaseHelper(ShareStackApplication.appContext)
+    }
+
+    // ========== REAL-TIME PRICES ==========
+
+    // Holds current prices for each stock symbol
+    private val _currentPrices = MutableStateFlow<Map<String, Double>>(emptyMap())
+    val currentPrices: StateFlow<Map<String, Double>> = _currentPrices.asStateFlow()
+
+    // Stock symbols to track
+    private val trackedSymbols = listOf("NVDA", "AMZN", "AAPL", "GOOGL")
+
+    init {
+        // Start fetching real prices when repository is created
+        startPriceUpdates()
+    }
+
+    private fun startPriceUpdates() {
+        CoroutineScope(Dispatchers.IO).launch {
+            while (true) {
+                try {
+                    fetchAllPrices()
+                } catch (e: Exception) {
+                    // Log error but continue
+                    println("Error fetching prices: ${e.message}")
+                }
+                delay(15000)  // Update every 15 seconds (Finnhub free tier limit)
+            }
+        }
+    }
+
+    private suspend fun fetchAllPrices() {
+        val apiKey = BuildConfig.FINNHUB_API_KEY
+        val newPrices = mutableMapOf<String, Double>()
+
+        for (symbol in trackedSymbols) {
+            try {
+                val response = NetworkModule.apiService.getQuote(symbol, apiKey)
+                newPrices[symbol] = response.c  // Current price
+            } catch (e: Exception) {
+                // If API fails, keep old price or use fallback
+                println("Failed to fetch $symbol: ${e.message}")
+                // Keep existing price if available
+                _currentPrices.value[symbol]?.let { newPrices[symbol] = it }
+            }
+        }
+
+        if (newPrices.isNotEmpty()) {
+            _currentPrices.value = newPrices
+        }
+    }
+
+    // ========== AUTHENTICATION ==========
+
+    fun login(username: String, password: String): User? {
+        return dbHelper.getUser(username, password)
+    }
+
+    fun register(username: String, password: String, name: String): Boolean {
+        if (dbHelper.userExists(username)) {
+            return false
+        }
+        return dbHelper.insertUser(username, username, password, name)
+    }
+
+    fun getUser(username: String, password: String): User? {
+        return dbHelper.getUser(username, password)
+    }
 
     // ========== MOCK DATA ==========
 
