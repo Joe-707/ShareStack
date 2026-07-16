@@ -37,8 +37,13 @@ fun getGreetingMessage(): String {
 }
 
 fun formatCurrency(amount: Double): String {
-    val formatter = NumberFormat.getCurrencyInstance(Locale.US)
-    return formatter.format(amount)
+    // Uses standard number formatting (e.g., 1,000)
+    val formatter = NumberFormat.getNumberInstance(Locale.US)
+    formatter.minimumFractionDigits = 2
+    formatter.maximumFractionDigits = 2
+
+    // Attaches Ksh manually to the front
+    return "Ksh ${formatter.format(amount)}"
 }
 
 // ========== MAIN SCREEN ==========
@@ -50,9 +55,11 @@ fun HomeDashboardScreen(
     onNavigateToProposal: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
+
     // ✅ Get data from ViewModel
     val currentUser by viewModel.currentUser.collectAsState()
     val balance by viewModel.balance.collectAsState()
+    val portfolioValue by viewModel.totalPortfolioValue.collectAsState()
     val investmentGroups by viewModel.investmentGroups.collectAsState()
 
     val currentUserName = currentUser?.name ?: "User"
@@ -131,7 +138,7 @@ fun HomeDashboardScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // ✅ Portfolio Value Card - SAME COLORS
+            // ✅ Portfolio Value Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -142,11 +149,11 @@ fun HomeDashboardScreen(
                     modifier = Modifier.padding(all = 24.dp)
                 ) {
                     Text(
-                        text = "Total Stack Value",
+                        text = "Total Portfolio Value",
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Text(
-                        text = formatCurrency(balance),
+                        text = formatCurrency(portfolioValue),
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary
