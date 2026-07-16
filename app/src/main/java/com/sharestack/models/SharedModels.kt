@@ -1,14 +1,16 @@
 package com.sharestack.models
 
-// ========== USER ==========
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class User(
-    val id: String = "u1",
+    val id: String,
     val name: String,
     val totalPortfolioValue: Double = 0.0,
     val email: String = ""
 )
 
-// ========== STACK (Investment Group) ==========
+@Serializable
 data class Stack(
     val id: String,
     val name: String,
@@ -19,18 +21,18 @@ data class Stack(
     val activeProposals: List<Proposal> = emptyList()
 )
 
-// ========== STACK MEMBER ==========
+@Serializable
 data class StackMember(
     val name: String,
-    val ownershipPercentage: Int  // e.g., 40 = 40%
+    val ownershipPercentage: Int
 )
 
-// ========== PROPOSAL ==========
+@Serializable
 data class Proposal(
     val id: String,
-    val stockTarget: String,      // e.g., "Nvidia (NVDA)"
-    val targetAmount: Double,     // Total Ksh to pool
-    val activeMembers: List<String>  // Names of members participating
+    val stockTarget: String,
+    val targetAmount: Double,
+    val activeMembers: List<String>
 )
 
 // ========== STOCK (for price tracking) ==========

@@ -1,20 +1,29 @@
 package com.sharestack.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions          // ✅ ADD THIS
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardType              // ✅ ADD THIS
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sharestack.models.Proposal
 import com.sharestack.ui.theme.ShareStackTheme
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.sharestack.viewModel.ShareStackViewModel
+import com.sharestack.viewmodel.ShareStackViewModel
+import java.text.NumberFormat
+import java.util.Locale
 
+private fun formatUSD(amount: Double): String {
+    val formatter = NumberFormat.getCurrencyInstance(Locale.US)
+    return formatter.format(amount)
+}
 @Composable
 fun RedistributionDialog(
     targetAmount: Double,
@@ -90,31 +99,27 @@ fun RedistributionDialog(
 
 @Composable
 fun ActiveProposalCard(
-    proposalId: String, // <-- Requires the exact ID
     viewModel: ShareStackViewModel = viewModel(),
+    proposalId: String = "p1",
     onNavigateBack: () -> Unit = {},
     onConfirmRedistribution: (Map<String, Double>) -> Unit = {},
     onVoteNo: () -> Unit = {}
 ) {
     // UI State
     var showRedistributionPopup by remember { mutableStateOf(false) }
-    var isLegalAgreed by remember { mutableStateOf(false) } // <-- Tracks the checkbox
+    var isLegalAgreed by remember { mutableStateOf(false) }
 
-    // Fetch the REAL proposal from the Master Brain!
-    val activePitch = viewModel.getProposalById(proposalId)
+    // ✅ Get the REAL proposal from the ViewModel (or use dummy data)
+    val activePitch = viewModel.getProposalById(proposalId) ?: Proposal(
+        id = "p1",
+        stockTarget = "Nvidia (NVDA)",
+        targetAmount = 17000.0,
+        activeMembers = listOf("Joe", "Austin") // Sarah already voted No!
+    )
 
-
-    // Dummy Data
-//    val activePitch = Proposal(
-//        id = "p1",
-//        stockTarget = "Nvidia (NVDA)",
-//        targetAmount = 17000.0,
-//        activeMembers = listOf("Joe", "Austin") // Sarah already voted No!
-//    )
-
-    val stockTarget = activePitch?.stockTarget ?: "Unknown Stock"
-    val targetAmount = activePitch?.targetAmount ?: 0.0
-    val remainingMembers = activePitch?.activeMembers ?: emptyList()
+    val stockTarget = activePitch.stockTarget
+    val targetAmount = activePitch.targetAmount
+    val remainingMembers = activePitch.activeMembers
 
     Column(
         modifier = Modifier
@@ -132,17 +137,21 @@ fun ActiveProposalCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(all = 16.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-            shape = MaterialTheme.shapes.extraLarge, // Gives it that premium rounded look
+            shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
-                modifier = Modifier.padding(24.dp)
+                modifier = Modifier.padding(all = 24.dp)
             ) {
-                Text("Active Proposal", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Text(
-                    text = "Buy Ksh $targetAmount of $stockTarget",
+                    "Active Proposal",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+                Text(
+                    text = "Buy ${formatUSD(targetAmount)} of $stockTarget",
                     color = MaterialTheme.colorScheme.secondary,
                     fontSize = 16.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
@@ -160,16 +169,16 @@ fun ActiveProposalCard(
                         text = "Notice: A member opted out. Remaining members must cover the shortfall if approved.",
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         fontSize = 13.sp,
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier.padding(all = 12.dp)
                     )
                 }
 
-                // THE NEW LEGAL CHECKBOX
+                // THE LEGAL CHECKBOX
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 24.dp),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = isLegalAgreed,
@@ -185,7 +194,6 @@ fun ActiveProposalCard(
                     )
                 }
 
-                // ACTION BUTTONS
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly

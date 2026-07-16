@@ -15,8 +15,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sharestack.ui.screens.*
 import com.sharestack.ui.theme.ShareStackTheme
-import com.sharestack.viewModel.ShareStackViewModel
+import com.sharestack.viewmodel.ShareStackViewModel
 import android.widget.Toast
+import androidx.compose.runtime.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,64 +45,76 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("register")
                                 },
                                 onNavigateToHome = { email, password ->
-                                    val success = viewModel.login(email, password)
-                                    if (success) {
-                                        navController.navigate("home") {
-                                            popUpTo("login") { inclusive = true }
+                                    // ✅ Use a coroutine to handle the suspend function
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        // Show loading in LoginScreen (handled internally)
+                                        val success = viewModel.login(email, password)
+                                        if (success) {
+                                            navController.navigate("home") {
+                                                popUpTo("login") { inclusive = true }
+                                            }
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Login failed: Invalid email or password",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
-                                    } else {
-                                        // Show Toast message for failed login
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            "Login failed: Invalid email or password",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
                                     }
                                 }
                             )
                         }
 
-                        // REGISTER SCREEN
+                        // ========== REGISTER SCREEN ==========
                         composable("register") {
                             RegisterScreen(
                                 onNavigateToLogin = {
                                     navController.navigate("login")
                                 },
                                 onNavigateToHome = { name, email, password ->
-                                    // ✅ Call register (was signup)
-                                    val success = viewModel.register(name, email, password)
-                                    if (success) {
-                                        navController.navigate("home") {
-                                            popUpTo("login") { inclusive = true }
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        val success = viewModel.register(name, email, password)
+                                        if (success) {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Registration successful! Welcome $name",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.navigate("home") {
+                                                popUpTo("login") { inclusive = true }
+                                            }
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Registration failed: Email already exists",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     }
                                 }
                             )
                         }
-                        // HOME DASHBOARD
+
+                        // ========== HOME DASHBOARD ==========
                         composable("home") {
                             HomeDashboardScreen(
                                 viewModel = viewModel,
                                 onNavigateToGroupHub = { clickedGroupId ->
-                                    // Navigates to the specific group card clicked
                                     navController.navigate("group-detail/$clickedGroupId")
                                 },
                                 onNavigateToProposal = {
                                     navController.navigate("proposal-detail/p1")
                                 },
-
                                 onLogout = {
                                     viewModel.logout()
-                                    // Clears the backstack so they can't hit 'back' to enter the app again
                                     navController.navigate("login") {
                                         popUpTo(0)
                                     }
                                 }
-
                             )
                         }
 
-                        // GROUP DETAIL
+                        // ========== GROUP DETAIL ==========
                         composable(
                             route = "group-detail/{groupId}",
                             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
@@ -106,7 +122,7 @@ class MainActivity : ComponentActivity() {
                             val groupId = backStackEntry.arguments?.getString("groupId") ?: "1"
                             GroupDetailScreen(
                                 groupId = groupId,
-                                viewModel=viewModel,
+                                viewModel = viewModel,
                                 onNavigateBack = {
                                     navController.popBackStack()
                                 },
@@ -119,7 +135,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // CREATE PROPOSAL
+                        // ========== CREATE PROPOSAL ==========
                         composable(
                             route = "create-proposal/{groupId}",
                             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
@@ -137,16 +153,15 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // PROPOSAL DETAIL (Active Proposal Card)
+                        // ========== PROPOSAL DETAIL ==========
                         composable(
-                            route="proposal-detail/{proposalId}",
+                            route = "proposal-detail/{proposalId}",
                             arguments = listOf(navArgument("proposalId") { type = NavType.StringType })
                         ) { backStackEntry ->
                             val proposalId = backStackEntry.arguments?.getString("proposalId") ?: "p1"
-
                             ActiveProposalCard(
                                 proposalId = proposalId,
-                                viewModel= viewModel,
+                                viewModel = viewModel,
                                 onNavigateBack = {
                                     navController.popBackStack()
                                 },
@@ -155,7 +170,6 @@ class MainActivity : ComponentActivity() {
                                     navController.popBackStack()
                                 },
                                 onVoteNo = {
-                                    // They opted out, so we just send them back to the dashboard!
                                     navController.popBackStack()
                                 }
                             )

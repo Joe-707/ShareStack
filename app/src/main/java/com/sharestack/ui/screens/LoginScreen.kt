@@ -1,12 +1,10 @@
 package com.sharestack.ui.screens
 
-import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -19,10 +17,11 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
     onNavigateToHome: (email: String, password: String) -> Unit = { _, _ -> }
 ) {
-    val context = LocalContext.current
+    // ✅ Clear fields when screen is first shown
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -41,7 +40,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Tagline
         Text(
             text = "Pool together. Invest smarter.",
             fontSize = 16.sp,
@@ -50,7 +48,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // ✅ Show error message if login fails
+        // Show error message if login fails
         if (loginError != null) {
             Card(
                 modifier = Modifier
@@ -74,11 +72,12 @@ fun LoginScreen(
             value = email,
             onValueChange = {
                 email = it
-                loginError = null  // Clear error when user types
+                loginError = null
             },
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -88,12 +87,13 @@ fun LoginScreen(
             value = password,
             onValueChange = {
                 password = it
-                loginError = null  // Clear error when user types
+                loginError = null
             },
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -104,24 +104,40 @@ fun LoginScreen(
                 if (email.isBlank() || password.isBlank()) {
                     loginError = "Please enter both email and password"
                 } else {
-                    // Try to login
-                    // The result will be handled in MainActivity
-                    // But we pass the email and password
+                    isLoading = true
+                    loginError = null
                     onNavigateToHome(email, password)
                 }
             },
-            enabled = email.isNotBlank() && password.isNotBlank(),
+            enabled = email.isNotBlank() && password.isNotBlank() && !isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)
         ) {
-            Text("Login", fontSize = 18.sp)
+            if (isLoading) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Logging in...", fontSize = 18.sp)
+                }
+            } else {
+                Text("Login", fontSize = 18.sp)
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Sign Up Link
-        TextButton(onClick = onNavigateToRegister) {
+        TextButton(
+            onClick = onNavigateToRegister,
+            enabled = !isLoading
+        ) {
             Text("Don't have an account? Create one")
         }
     }

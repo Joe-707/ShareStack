@@ -21,7 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sharestack.models.InvestmentGroup
 import com.sharestack.models.Proposal
 import com.sharestack.ui.theme.ShareStackTheme
-import com.sharestack.viewModel.ShareStackViewModel
+import com.sharestack.viewmodel.ShareStackViewModel
 import java.text.NumberFormat
 import java.util.*
 

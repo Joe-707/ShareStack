@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sharestack.models.Proposal
 import com.sharestack.ui.theme.ShareStackTheme
-import com.sharestack.viewModel.ShareStackViewModel
+import com.sharestack.viewmodel.ShareStackViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
