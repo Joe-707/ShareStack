@@ -44,21 +44,18 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToRegister = {
                                     navController.navigate("register")
                                 },
-                                onNavigateToHome = { email, password ->
-                                    // ✅ Use a coroutine to handle the suspend function
+                                onLoginSubmit = { email, password, onResult ->
                                     CoroutineScope(Dispatchers.Main).launch {
-                                        // Show loading in LoginScreen (handled internally)
-                                        val success = viewModel.login(email, password)
-                                        if (success) {
+                                        val statusMessage = viewModel.login(email, password)
+
+                                        if (statusMessage == "Success") {
+                                            onResult(null) // No errors!
                                             navController.navigate("home") {
                                                 popUpTo("login") { inclusive = true }
                                             }
                                         } else {
-                                            Toast.makeText(
-                                                this@MainActivity,
-                                                "Login failed: Invalid email or password",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            // Send the error message back
+                                            onResult(statusMessage)
                                         }
                                     }
                                 }
@@ -105,10 +102,41 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToProposal = {
                                     navController.navigate("proposal-detail/p1")
                                 },
+                                onNavigateToCreateGroup = {
+                                    navController.navigate("create-group")
+                                },
                                 onLogout = {
                                     viewModel.logout()
                                     navController.navigate("login") {
                                         popUpTo(0)
+                                    }
+                                }
+                            )
+                        }
+
+                        // ========== CREATE GROUP ==========
+                        composable("create-group") {
+                            // Extract the current user's name to pass to the group
+                            val currentUser by viewModel.currentUser.collectAsState()
+
+                            CreateGroupScreen(
+                                currentUserName = currentUser?.name ?: "User",
+                                onNavigateBack = {
+                                    navController.popBackStack()
+                                },
+                                onSubmit = { name, ticker, members ->
+                                    // Launch a background coroutine to talk to Supabase
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        val success = viewModel.createNewStack(name, ticker, members)
+                                        if (success) {
+                                            navController.popBackStack() // Go back to dashboard on success
+                                        } else {
+                                            Toast.makeText(
+                                                this@MainActivity,
+                                                "Failed to create group",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
                                     }
                                 }
                             )
@@ -152,21 +180,17 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-
                         // ========== PROPOSAL DETAIL ==========
                         composable(
                             route = "proposal-detail/{proposalId}",
                             arguments = listOf(navArgument("proposalId") { type = NavType.StringType })
                         ) { backStackEntry ->
                             val proposalId = backStackEntry.arguments?.getString("proposalId") ?: "p1"
+
                             ActiveProposalCard(
                                 proposalId = proposalId,
                                 viewModel = viewModel,
                                 onNavigateBack = {
-                                    navController.popBackStack()
-                                },
-                                onConfirmRedistribution = { newSplit ->
-                                    viewModel.redistributeFunds(proposalId, newSplit)
                                     navController.popBackStack()
                                 },
                                 onVoteNo = {

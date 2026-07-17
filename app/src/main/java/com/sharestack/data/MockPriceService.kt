@@ -45,6 +45,7 @@ class MockPriceService {
         "AMZN" -> 360.0
         "AAPL" -> 180.0
         "GOOGL" -> 140.0
+        "TSLA" -> 220.0
         else -> 100.0
     }
 }

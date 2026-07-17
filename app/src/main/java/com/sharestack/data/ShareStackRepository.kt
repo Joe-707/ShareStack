@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import com.sharestack.data.remote.NetworkModule
+import java.security.MessageDigest
 
 class ShareStackRepository {
 
@@ -31,7 +32,7 @@ class ShareStackRepository {
     private val _balance = MutableStateFlow(500.0)
     val balance: StateFlow<Double> = _balance.asStateFlow()
 
-    private val trackedSymbols = listOf("NVDA", "AMZN", "AAPL", "GOOGL")
+    private val trackedSymbols = listOf("NVDA", "AMZN", "AAPL", "GOOGL", "TSLA")
 
     // ========== INIT ==========
 
@@ -54,6 +55,8 @@ class ShareStackRepository {
         }
     }
 
+
+
     fun refreshStacks() {
         CoroutineScope(Dispatchers.IO).launch {
             loadStacksFromSupabase()
@@ -61,11 +64,6 @@ class ShareStackRepository {
     }
 
     // ========== AUTHENTICATION ==========
-
-    suspend fun login(username: String, password: String): User? {
-        return supabaseService.getUser(username, password)
-    }
-
     suspend fun register(username: String, password: String, name: String): Boolean {
         if (supabaseService.userExists(username)) {
             return false
@@ -76,8 +74,15 @@ class ShareStackRepository {
             totalPortfolioValue = 0.0,
             email = username
         )
+        val hashedPassword = hashPassword(password)
         // ✅ Pass the actual password
-        return supabaseService.insertUser(user, password)
+        return supabaseService.insertUser(user, hashedPassword)
+    }
+
+
+    suspend fun login(username: String, password: String): User? {
+        val hashedPassword = hashPassword(password)
+        return supabaseService.getUser(username, hashedPassword)
     }
 
     suspend fun userExists(username: String): Boolean {
@@ -131,9 +136,6 @@ class ShareStackRepository {
     }
 
     // ========== PRICE UPDATES ==========
-
-    // ========== PRICE UPDATES ==========
-
     private var isPriceUpdatesStarted = false
 
     fun startPriceUpdates() {
@@ -160,7 +162,7 @@ class ShareStackRepository {
         }
 
         val newPrices = mutableMapOf<String, Double>()
-        val trackedSymbols = listOf("NVDA", "AMZN", "AAPL", "GOOGL")
+        val trackedSymbols = listOf("NVDA", "AMZN", "AAPL", "GOOGL", "TSLA")
 
         for (symbol in trackedSymbols) {
             try {
@@ -191,10 +193,49 @@ class ShareStackRepository {
         return total
     }
 
+    suspend fun executeProposalPurchase(stackId: String, proposalId: String, targetAmount: Double, currentPrice: Double, updatedMembers: List<StackMember>,contributions: Map<String, Double> ): Boolean {
+        // Core Math: Convert the Ksh funding target into actual shares owned!
+        val newShares = targetAmount / currentPrice
+
+        // Mutate the local StateFlow so your UI instantly jumps and shows the new value
+        val updatedStacks = _stacks.value.map { stack ->
+            if (stack.id == stackId) {
+
+                // Generate the permanent receipt
+                val newLedgerEntry = com.sharestack.models.LedgerEntry(
+                    id = System.currentTimeMillis().toString(),
+                    description = "Executed purchase of ${stack.stockSymbol}",
+                    totalAmount = targetAmount,
+                    contributions = contributions,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                stack.copy(
+                    sharesOwned = stack.sharesOwned + newShares,
+                    purchasePrice = currentPrice,
+                    members=updatedMembers,
+                    // Deletes the active proposal so it vanishes from the UI
+                    activeProposals = stack.activeProposals.filter { it.id != proposalId },
+                    ledger = stack.ledger + newLedgerEntry
+                )
+            } else stack
+        }
+        _stacks.value = updatedStacks
+        _balance.update { it - targetAmount }
+
+        return true
+    }
+
     // ========== MOCK OPERATIONS ==========
 
     fun fundWallet(amount: Double) {
         _balance.update { it + amount }
+    }
+
+    // One-way SHA-256 Hashing function
+    private fun hashPassword(password: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(password.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     fun buyStock(stackId: String, amount: Double): Boolean {

@@ -15,13 +15,18 @@ import com.sharestack.ui.theme.ShareStackTheme
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit = {},
-    onNavigateToHome: (email: String, password: String) -> Unit = { _, _ -> }
+    // A callback to let the UI know when the backend finishes rendering
+    onLoginSubmit: (email: String, password: String, onResult: (errorMessage: String?) -> Unit) -> Unit = { _, _, _ -> }
 ) {
-    // ✅ Clear fields when screen is first shown
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Validation
+    val emailPattern = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$".toRegex()
+    val isEmailValid = email.matches(emailPattern)
+    val isFormValid = isEmailValid && password.isNotBlank() && !isLoading
 
     Column(
         modifier = Modifier
@@ -30,7 +35,6 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // App Logo / Title
         Text(
             text = "ShareStack",
             fontSize = 36.sp,
@@ -48,7 +52,6 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Show error message if login fails
         if (loginError != null) {
             Card(
                 modifier = Modifier
@@ -67,7 +70,6 @@ fun LoginScreen(
             }
         }
 
-        // Email Input Field
         OutlinedTextField(
             value = email,
             onValueChange = {
@@ -76,13 +78,13 @@ fun LoginScreen(
             },
             label = { Text("Email Address") },
             modifier = Modifier.fillMaxWidth(),
+            isError = email.isNotEmpty() && !isEmailValid,
             singleLine = true,
             enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Password Input Field
         OutlinedTextField(
             value = password,
             onValueChange = {
@@ -98,18 +100,24 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Login Button
         Button(
             onClick = {
-                if (email.isBlank() || password.isBlank()) {
-                    loginError = "Please enter both email and password"
-                } else {
-                    isLoading = true
-                    loginError = null
-                    onNavigateToHome(email, password)
+                isLoading = true
+                loginError = null
+
+                onLoginSubmit(email, password) { errorMsg ->
+                    isLoading = false // STOP the infinite loading spinner!
+
+                    if (errorMsg != null) {
+                        loginError = errorMsg
+                        // Refresh the attempt by clearing the password field if they got it wrong
+                        if (errorMsg.contains("password", ignoreCase = true)) {
+                            password = ""
+                        }
+                    }
                 }
             },
-            enabled = email.isNotBlank() && password.isNotBlank() && !isLoading,
+            enabled = isFormValid,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)

@@ -22,8 +22,10 @@ fun CreateProposalScreen(
     var stockTicker by remember { mutableStateOf("") }
     var targetAmount by remember { mutableStateOf("") }
 
-    // Validation: Fields must not be empty, amount must be a valid number
-    val isFormValid = stockTicker.isNotBlank() && targetAmount.toDoubleOrNull() != null
+    // Validation: Amount must be a valid number AND at least Ksh 100
+    val parsedAmount = targetAmount.toDoubleOrNull()
+    val isAmountValid = parsedAmount != null && parsedAmount >= 100.0
+    val isFormValid = stockTicker.isNotBlank() && isAmountValid
 
     Scaffold(
         topBar = {
@@ -56,20 +58,44 @@ fun CreateProposalScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Enter the stock ticker and the total amount of Ksh you want the group to pool together.",
+                text = "Select a stock ticker and the total amount of Ksh you want the group to pool together.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Stock Input
-            OutlinedTextField(
-                value = stockTicker,
-                onValueChange = { stockTicker = it.uppercase() }, // Auto-capitalizes tickers!
-                label = { Text("Stock Ticker (e.g., AAPL, NVDA)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+            // --- DROPDOWN MENU IMPLEMENTATION ---
+            var expanded by remember { mutableStateOf(false) }
+            val availableStocks = listOf("NVDA (Nvidia)", "AAPL (Apple)", "MSFT (Microsoft)", "TSLA (Tesla)", "AMZN (Amazon)")
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = stockTicker,
+                    onValueChange = {},
+                    readOnly = true, // Prevents manual typing!
+                    label = { Text("Target Stock") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    availableStocks.forEach { selection ->
+                        DropdownMenuItem(
+                            text = { Text(selection) },
+                            onClick = {
+                                stockTicker = selection.substringBefore(" ")
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            // ------------------------------------
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -80,15 +106,25 @@ fun CreateProposalScreen(
                 label = { Text("Target Amount (Ksh)") },
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                isError = targetAmount.isNotEmpty() && !isAmountValid,
                 singleLine = true
             )
+
+            if (targetAmount.isNotEmpty() && !isAmountValid) {
+                Text(
+                    text = "Amount must be at least Ksh 100",
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             // Submit Button
             Button(
                 onClick = {
-                    targetAmount.toDoubleOrNull()?.let {
+                    parsedAmount?.let {
                         onSubmit(stockTicker, it)
                     }
                 },

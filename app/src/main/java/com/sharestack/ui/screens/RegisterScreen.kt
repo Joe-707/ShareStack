@@ -21,18 +21,16 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit = {},
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
 
-
     val emailPattern = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$".toRegex()
     val isEmailValid = email.matches(emailPattern)
 
-    // THE MAGIC LOGIC:
-    // Checks that no fields are empty, AND that the passwords are an exact match.
-    val isFormValid = name.isNotBlank() &&
-            isEmailValid &&
-            email.isNotBlank() &&
-            password.isNotBlank() &&
-            password == confirmPassword
+    // Validate password length
+    val isPasswordValid = password.length >= 6
 
+    val isFormValid = name.trim().length >= 2 &&
+            isEmailValid &&
+            isPasswordValid &&
+            password == confirmPassword
 
     Column(
         modifier = Modifier
@@ -85,8 +83,18 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit = {},
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
+            isError = password.isNotEmpty() && !isPasswordValid,
             singleLine = true
         )
+
+        if (password.isNotEmpty() && !isPasswordValid) {
+            Text(
+                text = "Password must be at least 6 characters",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.Start).padding(start = 16.dp, top = 4.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -96,11 +104,10 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit = {},
             label = { Text("Confirm Password") },
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
-            isError = confirmPassword.isNotEmpty() && password != confirmPassword, // Turns red if they don't match!
+            isError = confirmPassword.isNotEmpty() && password != confirmPassword,
             singleLine = true
         )
 
-        // Show a little warning text if the passwords don't match
         if (confirmPassword.isNotEmpty() && password != confirmPassword) {
             Text(
                 text = "Passwords do not match",
@@ -113,8 +120,8 @@ fun RegisterScreen(onNavigateToLogin: () -> Unit = {},
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick =   {onNavigateToHome(name,email,password)},
-            enabled = isFormValid, // Button stays disabled until everything is perfect
+            onClick = { onNavigateToHome(name, email, password) },
+            enabled = isFormValid,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp)

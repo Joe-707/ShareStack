@@ -31,17 +31,34 @@ class ShareStackViewModel : ViewModel() {
     val stacks: StateFlow<List<Stack>> = repository.stacks
     val currentPrices: StateFlow<Map<String, Double>> = repository.currentPrices
 
-    // ========== UI-FRIENDLY DERIVED STATE ==========
-
     val investmentGroups: StateFlow<List<InvestmentGroup>> = combine(
         stacks,
-        currentPrices
-    ) { stacksList, prices ->
-        stacksList.map { stack ->
+        currentPrices,
+        currentUser
+    ) { stacksList, prices, user ->
+        // 1. SECURITY CHECK: If nobody is logged in, return an empty dashboard
+        if (user == null) return@combine emptyList()
+
+        // 2. ISOLATION: Only keep the stacks where this specific user is an official member
+        val myStacks = stacksList.filter { stack ->
+            stack.members.any { it.name.equals(user.name, ignoreCase = true) }
+        }
+
+        // 3. MATH: Calculate their specific contribution
+        myStacks.map { stack ->
             val currentPrice = prices[stack.stockSymbol] ?: stack.purchasePrice
-            val totalValue = currentPrice * stack.sharesOwned
-            val totalCost = stack.purchasePrice * stack.sharesOwned
-            val profitLoss = totalValue - totalCost
+
+            // The TOTAL pool of money in the group
+            val vaultTotalValue = currentPrice * stack.sharesOwned
+            val vaultTotalCost = stack.purchasePrice * stack.sharesOwned
+
+            // Find exactly what percentage the logged-in user owns (ignoring uppercase/lowercase typos)
+            val myMemberData = stack.members.find { it.name.equals(user.name, ignoreCase = true) }
+            val myPercentage = (myMemberData?.ownershipPercentage ?: 0) / 100.0
+
+            // Multiply the vault by their percentage to get their true personal portfolio value
+            val myPersonalValue = vaultTotalValue * myPercentage
+            val myPersonalProfit = (vaultTotalValue - vaultTotalCost) * myPercentage
 
             InvestmentGroup(
                 id = stack.id,
@@ -52,8 +69,9 @@ class ShareStackViewModel : ViewModel() {
                 sharesOwned = stack.sharesOwned,
                 purchasePrice = stack.purchasePrice,
                 currentPrice = currentPrice,
-                totalValue = totalValue,
-                profitLoss = profitLoss
+                totalValue = myPersonalValue,
+                profitLoss = myPersonalProfit,
+                ledger = stack.ledger
             )
         }
     }.stateIn(
@@ -72,20 +90,27 @@ class ShareStackViewModel : ViewModel() {
 
     // ========== AUTHENTICATION ==========
 
-    suspend fun login(email: String, password: String): Boolean {
-        println("🔐 LOGIN ATTEMPT: email=$email, password=$password")
+    suspend fun login(email: String, password: String): String {
+        println("🔐 LOGIN ATTEMPT: email=$email")
+
+        // 1. Check if the user is in the database at all
+        val exists = repository.userExists(email)
+        if (!exists) {
+            println("🔐 LOGIN FAILED - Account not found")
+            return "Account not found. Please sign up."
+        }
+
+        // 2. If they exist, verify the password hash
         val user = repository.login(email, password)
-        println("🔐 USER RESULT: $user")
         return if (user != null) {
             _currentUser.value = user
             _isLoggedIn.value = true
-            // ✅ Start price updates after successful login
             repository.startPriceUpdates()
             println("🔐 LOGIN SUCCESS")
-            true
+            "Success"
         } else {
-            println("🔐 LOGIN FAILED - user is null")
-            false
+            println("🔐 LOGIN FAILED - Incorrect password")
+            "Incorrect password. Please try again."
         }
     }
 
@@ -95,7 +120,7 @@ class ShareStackViewModel : ViewModel() {
         if (result) {
             _currentUser.value = User(email, name, 0.0, email)
             _isLoggedIn.value = true
-            // ✅ Start price updates after successful registration
+            // Start price updates after successful registration
             repository.startPriceUpdates()
             println("📝 Register SUCCESS")
         } else {
@@ -168,7 +193,52 @@ class ShareStackViewModel : ViewModel() {
     fun redistributeFunds(proposalId: String, newSplit: Map<String, Double>) {
         println("New split for proposal $proposalId: $newSplit")
     }
+    fun approveAndExecuteProposal(proposalId: String, contributions: Map<String, Double>) {
+        viewModelScope.launch {
+            val stack = stacks.value.find { s -> s.activeProposals.any { it.id == proposalId } } ?: return@launch
+            val proposal = stack.activeProposals.find { it.id == proposalId } ?: return@launch
 
+            val livePrice = currentPrices.value[stack.stockSymbol] ?: 100.0
+
+            // === 1. DYNAMIC OWNERSHIP RECALCULATION ===
+            val currentStackValue = stack.sharesOwned * livePrice
+            val newTotalValue = currentStackValue + proposal.targetAmount
+
+            var accumulatedPercentage = 0
+
+            val updatedMembers = stack.members.mapIndexed { index, member ->
+                // Calculate their existing equity plus their new contribution
+                val currentEquity = currentStackValue * (member.ownershipPercentage / 100.0)
+                val newContribution = contributions[member.name] ?: 0.0
+                val totalPersonalEquity = currentEquity + newContribution
+
+                // Calculate the new percentage slice
+                val rawPercentage = if (newTotalValue > 0) {
+                    Math.round((totalPersonalEquity / newTotalValue) * 100).toInt()
+                } else {
+                    member.ownershipPercentage
+                }
+
+                // The last member takes the remainder so the math always equals exactly 100%
+                if (index == stack.members.size - 1) {
+                    member.copy(ownershipPercentage = 100 - accumulatedPercentage)
+                } else {
+                    accumulatedPercentage += rawPercentage
+                    member.copy(ownershipPercentage = rawPercentage)
+                }
+            }
+
+            // === 2. EXECUTE PURCHASE WITH NEW PERCENTAGES ===
+            repository.executeProposalPurchase(
+                stackId = stack.id,
+                proposalId = proposal.id,
+                targetAmount = proposal.targetAmount,
+                currentPrice = livePrice,
+                updatedMembers = updatedMembers, // Pushing the new legal split to the database
+                contributions=contributions
+            )
+        }
+    }
     fun setDemoUser() {
         _currentUser.value = User("u1", "Demo User", 500.0, "demo@example.com")
         _isLoggedIn.value = true

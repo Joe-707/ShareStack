@@ -11,17 +11,6 @@ data class User(
 )
 
 @Serializable
-data class Stack(
-    val id: String,
-    val name: String,
-    val members: List<StackMember>,
-    val stockSymbol: String,
-    val sharesOwned: Double,
-    val purchasePrice: Double,
-    val activeProposals: List<Proposal> = emptyList()
-)
-
-@Serializable
 data class StackMember(
     val name: String,
     val ownershipPercentage: Int
@@ -35,6 +24,27 @@ data class Proposal(
     val activeMembers: List<String>
 )
 
+@Serializable
+data class LedgerEntry(
+    val id: String,
+    val description: String,
+    val totalAmount: Double,
+    val contributions: Map<String, Double>,
+    val timestamp: Long
+)
+
+@Serializable
+data class Stack(
+    val id: String,
+    val name: String,
+    val members: List<StackMember>,
+    val stockSymbol: String,
+    val sharesOwned: Double,
+    val purchasePrice: Double,
+    val activeProposals: List<Proposal> = emptyList(),
+    val ledger: List<LedgerEntry> = emptyList() // The history ledger is correctly placed here
+)
+
 // ========== STOCK (for price tracking) ==========
 data class Stock(
     val symbol: String,
@@ -44,16 +54,16 @@ data class Stock(
 )
 
 // ========== INVESTMENT GROUP (Legacy/UI Compat) ==========
-// Keep this for backward compatibility with Austin's UI
 data class InvestmentGroup(
     val id: String,
     val name: String,
     val memberCount: Int,
     val activeProposals: List<Proposal> = emptyList(),
-    val stockSymbol: String = "",           // ✅ ADDED
-    val sharesOwned: Double = 0.0,          // ✅ ADDED
-    val purchasePrice: Double = 0.0,        // ✅ ADDED
-    val currentPrice: Double = 0.0,         // ✅ ADDED
-    val totalValue: Double = 0.0,           // ✅ ADDED
-    val profitLoss: Double = 0.0            // ✅ ADDED
+    val stockSymbol: String = "",
+    val sharesOwned: Double = 0.0,
+    val purchasePrice: Double = 0.0,
+    val currentPrice: Double = 0.0,
+    val totalValue: Double = 0.0,
+    val profitLoss: Double = 0.0,
+    val ledger: List<LedgerEntry> = emptyList() // The history ledger is correctly placed here
 )

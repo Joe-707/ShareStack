@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -12,6 +13,18 @@ android {
         }
     }
 
+//    defaultConfig {
+//        applicationId = "com.sharestack"
+//        minSdk = 24
+//        targetSdk = 36
+//        versionCode = 1
+//        versionName = "1.0"
+//
+//        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+//
+//        buildConfigField("String", "FINNHUB_API_KEY", "\"${project.properties["FINNHUB_API_KEY"]}\"")
+//    }
+
     defaultConfig {
         applicationId = "com.sharestack"
         minSdk = 24
@@ -21,7 +34,16 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "FINNHUB_API_KEY", "\"${project.properties["FINNHUB_API_KEY"]}\"")
+        // --- FINNHUB API KEY EXTRACTION BRIDGE ---
+        val properties = Properties()
+        val localPropertiesFile = project.rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+        val finnhubKey = properties.getProperty("FINNHUB_API_KEY") ?: ""
+
+        buildConfigField("String", "FINNHUB_API_KEY", "\"$finnhubKey\"")
+        // -----------------------------------------
     }
 
     buildTypes {
